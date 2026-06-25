@@ -1,6 +1,12 @@
 import { env } from "../env.js";
 import type { Change, LmsItem, LmsItemType } from "../types.js";
 
+type DeploymentNotification = {
+  sha?: string;
+  eventName?: string;
+  runUrl?: string;
+};
+
 export async function sendTelegramMessage(message: string): Promise<void> {
   const response = await fetch(`https://api.telegram.org/bot${env.telegramBotToken}/sendMessage`, {
     method: "POST",
@@ -15,6 +21,36 @@ export async function sendTelegramMessage(message: string): Promise<void> {
   if (!response.ok) {
     throw new Error(`Telegram send failed: ${response.status} ${await response.text()}`);
   }
+}
+
+export async function sendTelegramPhoto(photo: Buffer, caption: string): Promise<void> {
+  const form = new FormData();
+  form.append("chat_id", env.telegramChatId);
+  form.append("caption", caption.slice(0, 1000));
+  form.append("photo", new Blob([new Uint8Array(photo)], { type: "image/png" }), "lms-item.png");
+
+  const response = await fetch(`https://api.telegram.org/bot${env.telegramBotToken}/sendPhoto`, {
+    method: "POST",
+    body: form
+  });
+
+  if (!response.ok) {
+    throw new Error(`Telegram photo send failed: ${response.status} ${await response.text()}`);
+  }
+}
+
+export function formatDeploymentNotification(input: DeploymentNotification): string {
+  const shortSha = input.sha ? input.sha.slice(0, 7) : "unknown";
+
+  return [
+    "[DEPLOYED] LMS Watcher update verified",
+    "",
+    `Event: ${input.eventName ?? "unknown"}`,
+    `Commit: ${shortSha}`,
+    input.runUrl ? `Run: ${input.runUrl}` : undefined,
+    "",
+    "GitHub Actions completed the watcher checks successfully."
+  ].filter(Boolean).join("\n");
 }
 
 export function formatChange(change: Change): string {
@@ -53,6 +89,12 @@ export function formatChange(change: Change): string {
     change.item.url ? `Open: ${change.item.url}` : undefined,
     contextLine(change.item)
   ].filter(Boolean).join("\n");
+}
+
+export function shouldAttachScreenshot(change: Change): boolean {
+  if (change.kind === "removed") return false;
+  const item = change.kind === "new" ? change.item : change.after;
+  return Boolean(item.url);
 }
 
 function displayType(type: LmsItemType): string {

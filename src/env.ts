@@ -33,6 +33,11 @@ function parseBoolean(value: string, fallback: boolean): boolean {
   return fallback;
 }
 
+function parseInteger(value: string, fallback: number): number {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
 function normalizeLmsUrls(input: string): {
   lmsInputUrl: string;
   lmsRootUrl: string;
@@ -86,5 +91,8 @@ export const env = {
   calendarFilterMode: optional("CALENDAR_FILTER_MODE", "loose").toLowerCase() === "strict" ? "strict" : "loose",
 
   // Disabled by default because Moodle pages are messy and removed/hidden alerts can become noisy.
-  notifyRemovedItems: parseBoolean(optional("NOTIFY_REMOVED_ITEMS"), false)
+  notifyRemovedItems: parseBoolean(optional("NOTIFY_REMOVED_ITEMS"), false),
+
+  telegramScreenshots: parseBoolean(optional("TELEGRAM_SCREENSHOTS"), true),
+  maxScreenshotsPerRun: parseInteger(optional("MAX_SCREENSHOTS_PER_RUN"), 3)
 };

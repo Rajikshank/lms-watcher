@@ -142,3 +142,21 @@ jobs:
           WATCHED_COURSE_NAMES: ${{ secrets.WATCHED_COURSE_NAMES }}
           CALENDAR_FILTER_MODE: ${{ secrets.CALENDAR_FILTER_MODE }}
           NOTIFY_REMOVED_ITEMS: ${{ secrets.NOTIFY_REMOVED_ITEMS }}
+          TELEGRAM_SCREENSHOTS: ${{ secrets.TELEGRAM_SCREENSHOTS }}
+          MAX_SCREENSHOTS_PER_RUN: ${{ secrets.MAX_SCREENSHOTS_PER_RUN }}
+
+      - name: Notify deployment success
+        if: success() && github.event_name != 'schedule'
+        run: pnpm notify:deploy
+        env:
+          LMS_BASE_URL: ${{ secrets.LMS_BASE_URL }}
+          LMS_USERNAME: ${{ secrets.LMS_USERNAME }}
+          LMS_PASSWORD: ${{ secrets.LMS_PASSWORD }}
+          MOODLE_CALENDAR_URL: ${{ secrets.MOODLE_CALENDAR_URL }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || secrets.CF_ACCOUNT_ID }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          CF_KV_NAMESPACE_ID: ${{ secrets.CF_KV_NAMESPACE_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN || secrets.CF_API_TOKEN }}
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}

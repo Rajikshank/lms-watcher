@@ -11,7 +11,8 @@
     "verify:telegram": "tsx src/verify-telegram.ts",
     "verify:config": "tsx src/verify-config.ts",
     "verify:calendar": "tsx src/verify-calendar.ts",
-    "verify:moodle": "tsx src/verify-moodle.ts"
+    "verify:moodle": "tsx src/verify-moodle.ts",
+    "notify:deploy": "tsx src/deploy-notify.ts"
   },
   "dependencies": {
     "dotenv": "latest",

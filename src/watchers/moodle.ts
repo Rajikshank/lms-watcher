@@ -32,7 +32,7 @@ export function shouldKeepMoodleAnchor(url: string, title: string): boolean {
   return parsed.pathname.includes("/mod/") && !parsed.pathname.endsWith("/index.php");
 }
 
-async function login(page: Page): Promise<void> {
+export async function login(page: Page): Promise<void> {
   await page.goto(env.lmsLoginUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
 
   const username = page.locator('input[name="username"], input#username').first();

@@ -2,12 +2,13 @@ import { env } from "./env.js";
 import { diffItems } from "./diff.js";
 import { formatErrorReport } from "./error-report.js";
 import { getFilterSummary } from "./filter.js";
-import { formatChange, sendTelegramMessage } from "./notify/telegram.js";
+import { formatChange, sendTelegramMessage, sendTelegramPhoto, shouldAttachScreenshot } from "./notify/telegram.js";
 import { retry } from "./retry.js";
 import { readSnapshot, writeSnapshot } from "./storage/cloudflare-kv.js";
 import type { Change, LmsItem, Snapshot } from "./types.js";
 import { readCalendarItems } from "./watchers/calendar.js";
 import { crawlMoodleItems } from "./watchers/moodle.js";
+import { captureLmsItemScreenshot } from "./watchers/screenshot.js";
 
 function dedupeItems(items: LmsItem[]): LmsItem[] {
   const map = new Map<string, LmsItem>();
@@ -25,6 +26,40 @@ function filterNoisyChanges(changes: Change[]): Change[] {
 
 async function sendTelegramWithRetry(label: string, message: string): Promise<void> {
   await retry(label, () => sendTelegramMessage(message));
+}
+
+function screenshotItem(change: Change): LmsItem | null {
+  if (!shouldAttachScreenshot(change)) return null;
+  if (change.kind === "new") return change.item;
+  if (change.kind === "changed") return change.after;
+  return null;
+}
+
+async function sendScreenshotIfEnabled(change: Change, screenshotCount: number): Promise<boolean> {
+  if (!env.telegramScreenshots || screenshotCount >= env.maxScreenshotsPerRun) {
+    return false;
+  }
+
+  const item = screenshotItem(change);
+  if (!item) return false;
+
+  try {
+    const screenshot = await retry("LMS item screenshot", () => captureLmsItemScreenshot(item), {
+      attempts: 2,
+      delayMs: 1_000
+    });
+
+    if (!screenshot) return false;
+
+    await retry("Telegram screenshot notification", () => sendTelegramPhoto(
+      screenshot,
+      `[SCREENSHOT] ${item.title}`.slice(0, 1000)
+    ));
+    return true;
+  } catch (error) {
+    console.warn("Screenshot notification skipped:", error);
+    return false;
+  }
 }
 
 async function run(): Promise<void> {
@@ -52,10 +87,14 @@ async function run(): Promise<void> {
   }
 
   const changes = filterNoisyChanges(diffItems(previousSnapshot.items, currentItems));
+  let screenshotsSent = 0;
 
   if (changes.length > 0) {
     for (const change of changes.slice(0, 15)) {
       await sendTelegramWithRetry("Telegram change notification", formatChange(change));
+      if (await sendScreenshotIfEnabled(change, screenshotsSent)) {
+        screenshotsSent += 1;
+      }
     }
 
     if (changes.length > 15) {
