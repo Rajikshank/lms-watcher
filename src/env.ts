@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { requiredAny } from "./env-utils.js";
 
 function required(name: string): string {
   const value = process.env[name];
@@ -73,9 +74,9 @@ export const env = {
   telegramBotToken: required("TELEGRAM_BOT_TOKEN"),
   telegramChatId: required("TELEGRAM_CHAT_ID"),
 
-  cfAccountId: required("CLOUDFLARE_ACCOUNT_ID"),
+  cfAccountId: requiredAny(["CLOUDFLARE_ACCOUNT_ID", "CF_ACCOUNT_ID"]),
   cfKvNamespaceId: required("CF_KV_NAMESPACE_ID"),
-  cfApiToken: required("CLOUDFLARE_API_TOKEN"),
+  cfApiToken: requiredAny(["CLOUDFLARE_API_TOKEN", "CF_API_TOKEN"]),
 
   watchedCourseIds: parseCsv(optional("WATCHED_COURSE_IDS")),
   watchedCourseNames: parseCsv(optional("WATCHED_COURSE_NAMES")),

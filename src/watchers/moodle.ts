@@ -6,12 +6,30 @@ import type { LmsItem, LmsItemType, LmsSource } from "../types.js";
 
 type Course = { id: string; name: string; url: string };
 
-function typeFromUrl(url: string): LmsItemType {
+export function typeFromUrl(url: string): LmsItemType {
   if (url.includes("/mod/assign/")) return "assignment";
   if (url.includes("/mod/quiz/")) return "quiz";
   if (url.includes("/mod/forum/")) return "forum";
   if (url.includes("/mod/resource/") || url.includes("/mod/folder/") || url.includes("/mod/url/")) return "resource";
   return "unknown";
+}
+
+export function shouldKeepMoodleAnchor(url: string, title: string): boolean {
+  if (!title.trim() || !url.trim()) return false;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+
+  if (parsed.hash.includes("tab-panel")) return false;
+
+  const type = typeFromUrl(url);
+  if (type === "unknown") return false;
+
+  return parsed.pathname.includes("/mod/") && !parsed.pathname.endsWith("/index.php");
 }
 
 async function login(page: Page): Promise<void> {
@@ -72,8 +90,7 @@ async function extractItemsFromPage(page: Page, source: LmsSource, course?: Cour
   for (const anchor of anchors) {
     if (!anchor.title || !anchor.url) continue;
 
-    const useful = anchor.url.includes("/mod/") || anchor.url.includes("/calendar/") || anchor.url.includes("/course/view.php");
-    if (!useful) continue;
+    if (!shouldKeepMoodleAnchor(anchor.url, anchor.title)) continue;
 
     const type = typeFromUrl(anchor.url);
     const idRaw = [source, course?.id, type, anchor.url, anchor.title].join("|");

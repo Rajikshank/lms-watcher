@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx src/main.ts",
     "watch": "tsx src/main.ts",
+    "test": "tsx --test \"src/**/*.test.ts\"",
     "verify:kv": "tsx src/verify-kv.ts",
     "verify:telegram": "tsx src/verify-telegram.ts",
     "verify:config": "tsx src/verify-config.ts"
