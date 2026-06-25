@@ -9,7 +9,9 @@
     "test": "tsx --test \"src/**/*.test.ts\"",
     "verify:kv": "tsx src/verify-kv.ts",
     "verify:telegram": "tsx src/verify-telegram.ts",
-    "verify:config": "tsx src/verify-config.ts"
+    "verify:config": "tsx src/verify-config.ts",
+    "verify:calendar": "tsx src/verify-calendar.ts",
+    "verify:moodle": "tsx src/verify-moodle.ts"
   },
   "dependencies": {
     "dotenv": "latest",
