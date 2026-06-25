@@ -5,6 +5,10 @@ type DeploymentNotification = {
   sha?: string;
   eventName?: string;
   runUrl?: string;
+  watchedModules?: string[];
+  totalItems?: number;
+  itemCounts?: Record<string, number>;
+  screenshotAttached?: boolean;
 };
 
 export async function sendTelegramMessage(message: string): Promise<void> {
@@ -41,15 +45,25 @@ export async function sendTelegramPhoto(photo: Buffer, caption: string): Promise
 
 export function formatDeploymentNotification(input: DeploymentNotification): string {
   const shortSha = input.sha ? input.sha.slice(0, 7) : "unknown";
+  const watchedModules = input.watchedModules ?? [];
+  const shownModules = watchedModules.slice(0, 6);
+  const extraModuleCount = Math.max(0, watchedModules.length - shownModules.length);
+  const countText = input.itemCounts ? formatCounts(input.itemCounts) : undefined;
 
   return [
     "[DEPLOYED] LMS Watcher update verified",
     "",
     `Event: ${input.eventName ?? "unknown"}`,
     `Commit: ${shortSha}`,
+    `Watching: ${watchedModules.length > 0 ? `${watchedModules.length} modules` : "all configured modules"}`,
+    ...shownModules.map((moduleName) => `- ${moduleName}`),
+    extraModuleCount > 0 ? `- ...and ${extraModuleCount} more` : undefined,
+    input.totalItems !== undefined ? `Items seen: ${input.totalItems}` : undefined,
+    countText ? `Types: ${countText}` : undefined,
+    `Screenshot: ${input.screenshotAttached ? "attached" : "not attached"}`,
     input.runUrl ? `Run: ${input.runUrl}` : undefined,
     "",
-    "GitHub Actions completed the watcher checks successfully."
+    "Next scheduled checks will stay quiet unless new LMS changes appear."
   ].filter(Boolean).join("\n");
 }
 
@@ -109,6 +123,14 @@ function displayType(type: LmsItemType): string {
   };
 
   return labels[type];
+}
+
+function formatCounts(counts: Record<string, number>): string {
+  return Object.entries(counts)
+    .filter(([, count]) => count > 0)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([type, count]) => `${type}: ${count}`)
+    .join(", ");
 }
 
 function contextLine(item: LmsItem): string | undefined {
