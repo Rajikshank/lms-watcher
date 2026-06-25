@@ -2,7 +2,8 @@ import { env } from "./env.js";
 import { diffItems } from "./diff.js";
 import { formatErrorReport } from "./error-report.js";
 import { getFilterSummary } from "./filter.js";
-import { formatChange, sendTelegramMessage, sendTelegramPhoto, shouldAttachScreenshot } from "./notify/telegram.js";
+import { deliverChangeNotification, type ScreenshotFailureContext } from "./notify/change-delivery.js";
+import { sendTelegramMessage, sendTelegramPhoto } from "./notify/telegram.js";
 import { retry } from "./retry.js";
 import { readSnapshot, writeSnapshot } from "./storage/cloudflare-kv.js";
 import type { Change, LmsItem, Snapshot } from "./types.js";
@@ -53,45 +54,20 @@ async function sendTelegramWithRetry(label: string, message: string): Promise<vo
   await retry(label, () => sendTelegramMessage(message));
 }
 
-function screenshotItem(change: Change): LmsItem | null {
-  if (!shouldAttachScreenshot(change)) return null;
-  if (change.kind === "new") return change.item;
-  if (change.kind === "changed") return change.after;
-  return null;
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
-async function sendScreenshotIfEnabled(change: Change, screenshotCount: number): Promise<boolean> {
-  if (!env.telegramScreenshots || screenshotCount >= env.maxScreenshotsPerRun) {
-    return false;
-  }
-
-  const item = screenshotItem(change);
-  if (!item) return false;
-
-  try {
-    const screenshot = await retry("LMS item screenshot", () => captureLmsItemScreenshot(item), {
-      attempts: 2,
-      delayMs: 1_000
-    });
-
-    if (!screenshot) return false;
-
-    await retry("Telegram screenshot notification", () => sendTelegramPhoto(
-      screenshot,
-      `[SCREENSHOT] ${item.title}`.slice(0, 1000)
-    ));
-    return true;
-  } catch (error) {
-    console.warn("Screenshot notification skipped:", error);
-    await sendTelegramWithRetry("Telegram screenshot failure note", [
-      "[INFO] Screenshot unavailable",
-      "",
-      `Title: ${item.title}`,
-      "Text notification was sent successfully.",
-      "Check GitHub Actions logs for the screenshot error."
-    ].join("\n"));
-    return false;
-  }
+function logScreenshotFailure(context: ScreenshotFailureContext): void {
+  console.warn("Screenshot delivery failed:", {
+    stage: context.stage,
+    changeKind: context.changeKind,
+    itemType: context.itemType,
+    courseName: context.courseName,
+    title: context.title,
+    url: context.url,
+    error: errorMessage(context.error)
+  });
 }
 
 async function run(): Promise<void> {
@@ -123,8 +99,19 @@ async function run(): Promise<void> {
 
   if (changes.length > 0) {
     for (const change of changes.slice(0, 15)) {
-      await sendTelegramWithRetry("Telegram change notification", formatChange(change));
-      if (await sendScreenshotIfEnabled(change, screenshotsSent)) {
+      const delivery = await deliverChangeNotification(change, screenshotsSent, {
+        screenshotsEnabled: env.telegramScreenshots,
+        maxScreenshotsPerRun: env.maxScreenshotsPerRun,
+        captureScreenshot: (item) => retry("LMS item screenshot", () => captureLmsItemScreenshot(item), {
+          attempts: 2,
+          delayMs: 1_000
+        }),
+        sendText: (message) => retry("Telegram change notification", () => sendTelegramMessage(message)),
+        sendPhoto: (photo, caption) => retry("Telegram screenshot notification", () => sendTelegramPhoto(photo, caption)),
+        logScreenshotFailure
+      });
+
+      if (delivery.screenshotSent) {
         screenshotsSent += 1;
       }
     }

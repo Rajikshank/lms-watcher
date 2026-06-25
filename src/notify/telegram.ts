@@ -31,7 +31,7 @@ export async function sendTelegramPhoto(photo: Buffer, caption: string): Promise
   const form = new FormData();
   form.append("chat_id", env.telegramChatId);
   form.append("caption", caption.slice(0, 1000));
-  form.append("photo", new Blob([new Uint8Array(photo)], { type: "image/png" }), "lms-item.png");
+  form.append("photo", new Blob([new Uint8Array(photo)], { type: "image/jpeg" }), "lms-item.jpg");
 
   const response = await fetch(`https://api.telegram.org/bot${env.telegramBotToken}/sendPhoto`, {
     method: "POST",
