@@ -12,8 +12,33 @@ import { captureLmsItemScreenshot } from "./watchers/screenshot.js";
 
 function dedupeItems(items: LmsItem[]): LmsItem[] {
   const map = new Map<string, LmsItem>();
-  for (const item of items) map.set(item.id, item);
+  for (const item of items) {
+    const key = itemIdentityKey(item);
+    if (!map.has(key)) {
+      map.set(key, item);
+    }
+  }
   return [...map.values()];
+}
+
+function itemIdentityKey(item: LmsItem): string {
+  const url = normalizeItemUrl(item.url);
+  const course = item.courseId ?? item.courseName ?? "";
+  const title = item.title.toLowerCase().replace(/\s+/g, " ").trim();
+
+  return [course, item.type, url || title].join("|").toLowerCase();
+}
+
+function normalizeItemUrl(value: string | undefined): string {
+  if (!value) return "";
+
+  try {
+    const url = new URL(value);
+    url.hash = "";
+    return `${url.origin}${url.pathname}${url.search}`;
+  } catch {
+    return value.split("#")[0]?.trim() ?? value;
+  }
 }
 
 function filterNoisyChanges(changes: Change[]): Change[] {
@@ -58,6 +83,13 @@ async function sendScreenshotIfEnabled(change: Change, screenshotCount: number):
     return true;
   } catch (error) {
     console.warn("Screenshot notification skipped:", error);
+    await sendTelegramWithRetry("Telegram screenshot failure note", [
+      "[INFO] Screenshot unavailable",
+      "",
+      `Title: ${item.title}`,
+      "Text notification was sent successfully.",
+      "Check GitHub Actions logs for the screenshot error."
+    ].join("\n"));
     return false;
   }
 }
