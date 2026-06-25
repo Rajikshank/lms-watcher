@@ -63,7 +63,6 @@ jobs:
           WATCHED_COURSE_NAMES: ${{ secrets.WATCHED_COURSE_NAMES }}
           CALENDAR_FILTER_MODE: ${{ secrets.CALENDAR_FILTER_MODE }}
           NOTIFY_REMOVED_ITEMS: ${{ secrets.NOTIFY_REMOVED_ITEMS }}
-
       - name: Verify Cloudflare KV
         if: github.event_name != 'schedule'
         run: pnpm verify:kv
@@ -160,3 +159,7 @@ jobs:
           CF_KV_NAMESPACE_ID: ${{ secrets.CF_KV_NAMESPACE_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN || secrets.CF_API_TOKEN }}
           CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          WATCHED_COURSE_IDS: ${{ secrets.WATCHED_COURSE_IDS }}
+          WATCHED_COURSE_NAMES: ${{ secrets.WATCHED_COURSE_NAMES }}
+          CALENDAR_FILTER_MODE: ${{ secrets.CALENDAR_FILTER_MODE }}
+          NOTIFY_REMOVED_ITEMS: ${{ secrets.NOTIFY_REMOVED_ITEMS }}

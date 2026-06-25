@@ -55,7 +55,7 @@ export function formatDeploymentNotification(input: DeploymentNotification): str
     "",
     `Event: ${input.eventName ?? "unknown"}`,
     `Commit: ${shortSha}`,
-    `Watching: ${watchedModules.length > 0 ? `${watchedModules.length} modules` : "all configured modules"}`,
+    `Watching: ${watchedModules.length > 0 ? `${watchedModules.length} modules` : "all modules (no course filter listed)"}`,
     ...shownModules.map((moduleName) => `- ${moduleName}`),
     extraModuleCount > 0 ? `- ...and ${extraModuleCount} more` : undefined,
     input.totalItems !== undefined ? `Items seen: ${input.totalItems}` : undefined,
