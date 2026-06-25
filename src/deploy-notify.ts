@@ -1,14 +1,15 @@
 import { env } from "./env.js";
 import { formatDeploymentNotification, sendTelegramMessage, sendTelegramPhoto } from "./notify/telegram.js";
 import { retry } from "./retry.js";
-import { crawlMoodleItems } from "./watchers/moodle.js";
+import { readSnapshot } from "./storage/cloudflare-kv.js";
 import { captureLmsDashboardScreenshot } from "./watchers/screenshot.js";
 
 const serverUrl = process.env.GITHUB_SERVER_URL ?? "https://github.com";
 const repository = process.env.GITHUB_REPOSITORY;
 const runId = process.env.GITHUB_RUN_ID;
 const runUrl = repository && runId ? `${serverUrl}/${repository}/actions/runs/${runId}` : undefined;
-const items = await retry("Deployment Moodle summary crawl", crawlMoodleItems);
+const snapshot = await retry("Deployment snapshot read", readSnapshot);
+const items = snapshot?.items ?? [];
 const itemCounts: Record<string, number> = {};
 
 for (const item of items) {
@@ -21,13 +22,15 @@ const watchedModules = env.watchedCourseNames.length > 0
 
 let screenshot: Buffer | undefined;
 
-try {
-  screenshot = await retry("Deployment dashboard screenshot", captureLmsDashboardScreenshot, {
-    attempts: 2,
-    delayMs: 1_000
-  });
-} catch (error) {
-  console.warn("Deployment screenshot skipped:", error);
+if (env.deploymentScreenshot) {
+  try {
+    screenshot = await retry("Deployment dashboard screenshot", captureLmsDashboardScreenshot, {
+      attempts: 1,
+      delayMs: 0
+    });
+  } catch (error) {
+    console.warn("Deployment screenshot skipped:", error);
+  }
 }
 
 const message = formatDeploymentNotification({

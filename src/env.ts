@@ -94,5 +94,6 @@ export const env = {
   notifyRemovedItems: parseBoolean(optional("NOTIFY_REMOVED_ITEMS"), false),
 
   telegramScreenshots: parseBoolean(optional("TELEGRAM_SCREENSHOTS"), true),
-  maxScreenshotsPerRun: parseInteger(optional("MAX_SCREENSHOTS_PER_RUN"), 3)
+  maxScreenshotsPerRun: parseInteger(optional("MAX_SCREENSHOTS_PER_RUN"), 3),
+  deploymentScreenshot: parseBoolean(optional("DEPLOYMENT_SCREENSHOT"), false)
 };
