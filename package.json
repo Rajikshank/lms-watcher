@@ -1,0 +1,23 @@
+{
+  "name": "lms-watcher",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/main.ts",
+    "watch": "tsx src/main.ts",
+    "verify:kv": "tsx src/verify-kv.ts",
+    "verify:telegram": "tsx src/verify-telegram.ts",
+    "verify:config": "tsx src/verify-config.ts"
+  },
+  "dependencies": {
+    "dotenv": "latest",
+    "ical.js": "latest",
+    "playwright": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "tsx": "latest",
+    "typescript": "latest"
+  }
+}
