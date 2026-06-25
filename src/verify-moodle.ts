@@ -1,6 +1,7 @@
 import { crawlMoodleItems } from "./watchers/moodle.js";
+import { retry } from "./retry.js";
 
-const items = await crawlMoodleItems();
+const items = await retry("Moodle verification crawl", crawlMoodleItems);
 const counts = new Map<string, number>();
 
 for (const item of items) {
