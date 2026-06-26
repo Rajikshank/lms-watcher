@@ -45,8 +45,9 @@ export async function deliverChangeNotification(
   const message = formatChange(change);
   const item = screenshotItem(change);
 
+  await options.sendText(message);
+
   if (!options.screenshotsEnabled || screenshotsSent >= options.maxScreenshotsPerRun || !item) {
-    await options.sendText(message);
     return { screenshotSent: false };
   }
 
@@ -64,17 +65,15 @@ export async function deliverChangeNotification(
       title: item.title,
       url: item.url
     });
-    await options.sendText(message);
     return { screenshotSent: false };
   }
 
   if (!screenshot) {
-    await options.sendText(message);
     return { screenshotSent: false };
   }
 
   try {
-    await options.sendPhoto(screenshot, message);
+    await options.sendPhoto(screenshot, `[SCREENSHOT] ${item.title}`.slice(0, 1000));
     return { screenshotSent: true };
   } catch (error) {
     logFailure(options, {
@@ -86,7 +85,6 @@ export async function deliverChangeNotification(
       title: item.title,
       url: item.url
     });
-    await options.sendText(message);
     return { screenshotSent: false };
   }
 }
