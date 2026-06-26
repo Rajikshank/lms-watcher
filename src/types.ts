@@ -34,6 +34,21 @@ export type Snapshot = {
   items: LmsItem[];
 };
 
+export type ScanStatus = {
+  status: "success" | "failed";
+  scannedAt: string;
+  lastHealthNotifiedAt?: string;
+  totalItems: number;
+  rawCalendarItems: number;
+  rawMoodleItems: number;
+  itemCounts: Record<string, number>;
+  notifiedChanges: number;
+  screenshotsSent: number;
+  durationMs: number;
+  filterSummary: string;
+  error?: string;
+};
+
 export type Change =
   | { kind: "new"; item: LmsItem }
   | { kind: "changed"; before: LmsItem; after: LmsItem }

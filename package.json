@@ -12,6 +12,7 @@
     "verify:config": "tsx src/verify-config.ts",
     "verify:calendar": "tsx src/verify-calendar.ts",
     "verify:moodle": "tsx src/verify-moodle.ts",
+    "verify:status": "tsx src/verify-status.ts",
     "notify:deploy": "tsx src/deploy-notify.ts"
   },
   "dependencies": {

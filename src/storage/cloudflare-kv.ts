@@ -1,7 +1,8 @@
 import { env } from "../env.js";
-import type { Snapshot } from "../types.js";
+import type { ScanStatus, Snapshot } from "../types.js";
 
 export const SNAPSHOT_KEY = "lms-watcher:snapshot";
+export const SCAN_STATUS_KEY = "lms-watcher:scan-status";
 
 function kvValueUrl(key: string): string {
   return `https://api.cloudflare.com/client/v4/accounts/${env.cfAccountId}/storage/kv/namespaces/${env.cfKvNamespaceId}/values/${encodeURIComponent(key)}`;
@@ -48,4 +49,12 @@ export function readSnapshot(): Promise<Snapshot | null> {
 
 export function writeSnapshot(snapshot: Snapshot): Promise<void> {
   return writeJson(SNAPSHOT_KEY, snapshot);
+}
+
+export function readScanStatus(): Promise<ScanStatus | null> {
+  return readJson<ScanStatus>(SCAN_STATUS_KEY);
+}
+
+export function writeScanStatus(status: ScanStatus): Promise<void> {
+  return writeJson(SCAN_STATUS_KEY, status);
 }

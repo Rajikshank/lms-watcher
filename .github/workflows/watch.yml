@@ -6,7 +6,7 @@ on:
     branches:
       - main
   schedule:
-    - cron: "7,37 * * * *"
+    - cron: "7,22,37,52 * * * *"
 
 concurrency:
   group: lms-watcher
@@ -143,6 +143,8 @@ jobs:
           NOTIFY_REMOVED_ITEMS: ${{ secrets.NOTIFY_REMOVED_ITEMS }}
           TELEGRAM_SCREENSHOTS: ${{ secrets.TELEGRAM_SCREENSHOTS }}
           MAX_SCREENSHOTS_PER_RUN: ${{ secrets.MAX_SCREENSHOTS_PER_RUN }}
+          SCAN_GAP_WARN_MINUTES: ${{ secrets.SCAN_GAP_WARN_MINUTES }}
+          STATUS_NOTIFICATION_HOURS: ${{ secrets.STATUS_NOTIFICATION_HOURS }}
 
       - name: Notify deployment success
         if: success() && github.event_name != 'schedule'

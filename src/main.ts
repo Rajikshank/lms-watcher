@@ -5,8 +5,20 @@ import { getFilterSummary } from "./filter.js";
 import { deliverChangeNotification, type ScreenshotFailureContext } from "./notify/change-delivery.js";
 import { sendTelegramMessage, sendTelegramPhoto } from "./notify/telegram.js";
 import { retry } from "./retry.js";
-import { readSnapshot, writeSnapshot } from "./storage/cloudflare-kv.js";
-import type { Change, LmsItem, Snapshot } from "./types.js";
+import {
+  readScanStatus,
+  readSnapshot,
+  writeScanStatus,
+  writeSnapshot
+} from "./storage/cloudflare-kv.js";
+import {
+  countItemsByType,
+  formatGapWarning,
+  formatHealthReport,
+  shouldSendGapWarning,
+  shouldSendHealthReport
+} from "./scan-report.js";
+import type { Change, LmsItem, ScanStatus, Snapshot } from "./types.js";
 import { readCalendarItems } from "./watchers/calendar.js";
 import { crawlMoodleItems } from "./watchers/moodle.js";
 import { captureLmsItemScreenshot } from "./watchers/screenshot.js";
@@ -70,9 +82,72 @@ function logScreenshotFailure(context: ScreenshotFailureContext): void {
   });
 }
 
+function buildScanStatus(input: {
+  status: ScanStatus["status"];
+  scannedAt: string;
+  lastHealthNotifiedAt?: string;
+  currentItems: LmsItem[];
+  rawCalendarItems: number;
+  rawMoodleItems: number;
+  notifiedChanges: number;
+  screenshotsSent: number;
+  durationMs: number;
+  error?: string;
+}): ScanStatus {
+  return {
+    status: input.status,
+    scannedAt: input.scannedAt,
+    lastHealthNotifiedAt: input.lastHealthNotifiedAt,
+    totalItems: input.currentItems.length,
+    rawCalendarItems: input.rawCalendarItems,
+    rawMoodleItems: input.rawMoodleItems,
+    itemCounts: countItemsByType(input.currentItems),
+    notifiedChanges: input.notifiedChanges,
+    screenshotsSent: input.screenshotsSent,
+    durationMs: input.durationMs,
+    filterSummary: getFilterSummary(),
+    error: input.error
+  };
+}
+
+async function writeFailureStatus(error: unknown, startedAt: string, failedAt: string): Promise<void> {
+  const status = buildScanStatus({
+    status: "failed",
+    scannedAt: failedAt,
+    currentItems: [],
+    rawCalendarItems: 0,
+    rawMoodleItems: 0,
+    notifiedChanges: 0,
+    screenshotsSent: 0,
+    durationMs: Date.parse(failedAt) - Date.parse(startedAt),
+    error: errorMessage(error)
+  });
+
+  try {
+    await retry("Cloudflare failed scan status write", () => writeScanStatus(status), {
+      attempts: 1,
+      delayMs: 0
+    });
+  } catch (statusError) {
+    console.error("Failed to write failure scan status:", statusError);
+  }
+}
+
 async function run(): Promise<void> {
   const startedAt = new Date().toISOString();
+  const startedMs = Date.now();
   const previousSnapshot = await retry("Cloudflare snapshot read", readSnapshot);
+  const previousStatus = await retry("Cloudflare scan status read", readScanStatus);
+  const gap = shouldSendGapWarning(previousSnapshot?.scannedAt, startedAt, env.scanGapWarnMinutes);
+
+  if (previousSnapshot && gap.shouldSend) {
+    await sendTelegramWithRetry("Telegram scan gap warning", formatGapWarning({
+      previousScannedAt: previousSnapshot.scannedAt,
+      currentScannedAt: startedAt,
+      gapMinutes: gap.gapMinutes,
+      thresholdMinutes: env.scanGapWarnMinutes
+    }));
+  }
 
   const [calendarItems, moodleItems] = await Promise.all([
     retry("Moodle calendar read", readCalendarItems),
@@ -81,9 +156,22 @@ async function run(): Promise<void> {
 
   const currentItems = dedupeItems([...calendarItems, ...moodleItems]);
   const currentSnapshot: Snapshot = { scannedAt: startedAt, items: currentItems };
+  const shouldSendHealth = shouldSendHealthReport(previousStatus, startedAt, env.statusNotificationHours);
 
   if (!previousSnapshot) {
     await retry("Cloudflare snapshot write", () => writeSnapshot(currentSnapshot));
+    const status = buildScanStatus({
+      status: "success",
+      scannedAt: startedAt,
+      lastHealthNotifiedAt: startedAt,
+      currentItems,
+      rawCalendarItems: calendarItems.length,
+      rawMoodleItems: moodleItems.length,
+      notifiedChanges: 0,
+      screenshotsSent: 0,
+      durationMs: Date.now() - startedMs
+    });
+    await retry("Cloudflare scan status write", () => writeScanStatus(status));
     await sendTelegramWithRetry("Telegram initialization message", [
       "[OK] LMS Watcher initialized",
       "",
@@ -125,20 +213,43 @@ async function run(): Promise<void> {
   }
 
   await retry("Cloudflare snapshot write", () => writeSnapshot(currentSnapshot));
-  console.log(`Scan complete. Items: ${currentItems.length}. Notified changes: ${changes.length}. ${getFilterSummary()}`);
+  const status = buildScanStatus({
+    status: "success",
+    scannedAt: startedAt,
+    lastHealthNotifiedAt: shouldSendHealth ? startedAt : previousStatus?.lastHealthNotifiedAt,
+    currentItems,
+    rawCalendarItems: calendarItems.length,
+    rawMoodleItems: moodleItems.length,
+    notifiedChanges: changes.length,
+    screenshotsSent,
+    durationMs: Date.now() - startedMs
+  });
+  await retry("Cloudflare scan status write", () => writeScanStatus(status));
+
+  if (shouldSendHealth) {
+    await sendTelegramWithRetry("Telegram health report", formatHealthReport(status));
+  }
+
+  console.log([
+    `Scan complete. Items: ${currentItems.length}.`,
+    `Raw Moodle items: ${moodleItems.length}.`,
+    `Raw calendar items: ${calendarItems.length}.`,
+    `Notified changes: ${changes.length}.`,
+    `Screenshots sent: ${screenshotsSent}.`,
+    getFilterSummary()
+  ].join(" "));
 }
 
 const startedAt = new Date().toISOString();
 
 run().catch(async (error) => {
-  const message = formatErrorReport(error, {
-    startedAt,
-    failedAt: new Date().toISOString()
-  });
+  const failedAt = new Date().toISOString();
+  const message = formatErrorReport(error, { startedAt, failedAt });
 
   console.error(error);
 
   try {
+    await writeFailureStatus(error, startedAt, failedAt);
     await sendTelegramWithRetry("Telegram error notification", message);
   } catch (telegramError) {
     console.error("Also failed to send Telegram error message:", telegramError);

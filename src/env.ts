@@ -95,5 +95,8 @@ export const env = {
 
   telegramScreenshots: parseBoolean(optional("TELEGRAM_SCREENSHOTS"), true),
   maxScreenshotsPerRun: parseInteger(optional("MAX_SCREENSHOTS_PER_RUN"), 10),
-  deploymentScreenshot: parseBoolean(optional("DEPLOYMENT_SCREENSHOT"), false)
+  deploymentScreenshot: parseBoolean(optional("DEPLOYMENT_SCREENSHOT"), false),
+
+  scanGapWarnMinutes: parseInteger(optional("SCAN_GAP_WARN_MINUTES"), 75),
+  statusNotificationHours: parseInteger(optional("STATUS_NOTIFICATION_HOURS"), 6)
 };
