@@ -13,7 +13,10 @@
     "verify:calendar": "tsx src/verify-calendar.ts",
     "verify:moodle": "tsx src/verify-moodle.ts",
     "verify:status": "tsx src/verify-status.ts",
-    "notify:deploy": "tsx src/deploy-notify.ts"
+    "notify:deploy": "tsx src/deploy-notify.ts",
+    "scheduler:check": "wrangler deploy --dry-run",
+    "scheduler:deploy": "wrangler deploy",
+    "scheduler:logs": "wrangler tail lms-watcher-scheduler"
   },
   "dependencies": {
     "dotenv": "latest",
@@ -23,6 +26,7 @@
   "devDependencies": {
     "@types/node": "latest",
     "tsx": "latest",
-    "typescript": "latest"
+    "typescript": "latest",
+    "wrangler": "^4.105.0"
   }
 }

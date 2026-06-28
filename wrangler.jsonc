@@ -1,0 +1,24 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "lms-watcher-scheduler",
+  "main": "scheduler/worker.ts",
+  "compatibility_date": "2026-06-28",
+  "workers_dev": false,
+  "preview_urls": false,
+  "observability": {
+    "enabled": true,
+  },
+  "triggers": {
+    "crons": ["*/15 * * * *"],
+  },
+  "vars": {
+    "GITHUB_OWNER": "Rajikshank",
+    "GITHUB_REPO": "lms-watcher",
+    "GITHUB_WORKFLOW": "watch.yml",
+    "GITHUB_REF": "main",
+    "GITHUB_DISPATCH_SOURCE": "cloudflare-cron",
+  },
+  "secrets": {
+    "required": ["GITHUB_TOKEN"],
+  },
+}
