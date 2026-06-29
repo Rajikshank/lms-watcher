@@ -1,8 +1,10 @@
 import { env } from "../env.js";
+import type { NotificationOutbox } from "../notification-outbox.js";
 import type { ScanStatus, Snapshot } from "../types.js";
 
 export const SNAPSHOT_KEY = "lms-watcher:snapshot";
 export const SCAN_STATUS_KEY = "lms-watcher:scan-status";
+export const NOTIFICATION_OUTBOX_KEY = "lms-watcher:notification-outbox";
 
 function kvValueUrl(key: string): string {
   return `https://api.cloudflare.com/client/v4/accounts/${env.cfAccountId}/storage/kv/namespaces/${env.cfKvNamespaceId}/values/${encodeURIComponent(key)}`;
@@ -57,4 +59,19 @@ export function readScanStatus(): Promise<ScanStatus | null> {
 
 export function writeScanStatus(status: ScanStatus): Promise<void> {
   return writeJson(SCAN_STATUS_KEY, status);
+}
+
+export async function readNotificationOutbox(): Promise<NotificationOutbox | null> {
+  const outbox = await readJson<NotificationOutbox>(NOTIFICATION_OUTBOX_KEY);
+  if (!outbox) return null;
+
+  if (outbox.version !== 1 || !Array.isArray(outbox.entries)) {
+    throw new Error(`Unsupported notification outbox version: ${String(outbox.version)}`);
+  }
+
+  return outbox;
+}
+
+export function writeNotificationOutbox(outbox: NotificationOutbox): Promise<void> {
+  return writeJson(NOTIFICATION_OUTBOX_KEY, outbox);
 }
