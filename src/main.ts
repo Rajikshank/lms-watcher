@@ -143,6 +143,7 @@ function buildScanStatus(input: {
 
 async function writeFailureStatus(error: unknown, startedAt: string, failedAt: string): Promise<boolean> {
   let previousStatus: ScanStatus | null = null;
+  let pendingNotifications = 0;
 
   try {
     previousStatus = await retry("Cloudflare previous failure status read", readScanStatus, {
@@ -151,6 +152,17 @@ async function writeFailureStatus(error: unknown, startedAt: string, failedAt: s
     });
   } catch (statusReadError) {
     console.error("Failed to read previous scan status for incident suppression:", statusReadError);
+  }
+
+  try {
+    const outbox = await retry("Cloudflare failure outbox read", readNotificationOutbox, {
+      attempts: 1,
+      delayMs: 0
+    });
+    pendingNotifications = outbox?.entries.length ?? 0;
+  } catch (outboxReadError) {
+    pendingNotifications = previousStatus?.pendingNotifications ?? 0;
+    console.error("Failed to read pending notification count:", outboxReadError);
   }
 
   const incident = decideFailureIncident(
@@ -174,7 +186,7 @@ async function writeFailureStatus(error: unknown, startedAt: string, failedAt: s
     lastErrorNotifiedAt: incident.lastErrorNotifiedAt,
     consecutiveFailures: incident.consecutiveFailures,
     deliveredNotifications: 0,
-    pendingNotifications: previousStatus?.pendingNotifications ?? 0
+    pendingNotifications
   });
 
   try {

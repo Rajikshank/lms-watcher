@@ -77,9 +77,12 @@ export function formatGapWarning(input: GapWarningInput): string {
 
 export function formatHealthReport(status: ScanStatus): string {
   const countText = formatCounts(status.itemCounts);
+  const heading = status.status === "failed"
+    ? "[ERROR] LMS Watcher last scan failed"
+    : "[OK] LMS Watcher scan healthy";
 
   return [
-    "[OK] LMS Watcher scan healthy",
+    heading,
     "",
     `Scanned: ${status.scannedAt}`,
     `Items: ${status.totalItems}`,
@@ -88,6 +91,9 @@ export function formatHealthReport(status: ScanStatus): string {
     `Raw calendar items: ${status.rawCalendarItems}`,
     `Changes notified: ${status.notifiedChanges}`,
     `Pending alerts: ${status.pendingNotifications ?? 0}`,
+    status.status === "failed"
+      ? `Consecutive failures: ${status.consecutiveFailures ?? 1}`
+      : undefined,
     `Screenshots sent: ${status.screenshotsSent}`,
     `Duration: ${Math.round(status.durationMs / 1000)}s`,
     status.filterSummary
