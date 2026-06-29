@@ -47,6 +47,12 @@ export type ScanStatus = {
   durationMs: number;
   filterSummary: string;
   error?: string;
+  errorFingerprint?: string;
+  incidentStartedAt?: string;
+  lastErrorNotifiedAt?: string;
+  consecutiveFailures?: number;
+  deliveredNotifications?: number;
+  pendingNotifications?: number;
 };
 
 export type Change =

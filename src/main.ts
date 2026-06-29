@@ -2,6 +2,7 @@ import { env } from "./env.js";
 import { diffItems } from "./diff.js";
 import { formatErrorReport } from "./error-report.js";
 import { getFilterSummary } from "./filter.js";
+import { decideFailureIncident, shouldSendRecovery } from "./incident-health.js";
 import {
   drainNotificationOutbox,
   emptyNotificationOutbox,
@@ -22,6 +23,7 @@ import {
   countItemsByType,
   formatGapWarning,
   formatHealthReport,
+  formatRecoveryReport,
   shouldSendGapWarning,
   shouldSendHealthReport
 } from "./scan-report.js";
@@ -73,6 +75,16 @@ async function sendTelegramWithRetry(label: string, message: string): Promise<vo
   await retry(label, () => sendTelegramMessage(message));
 }
 
+async function sendTelegramBestEffort(label: string, message: string): Promise<boolean> {
+  try {
+    await sendTelegramWithRetry(label, message);
+    return true;
+  } catch (error) {
+    console.error(`${label} failed without stopping the LMS scan:`, error);
+    return false;
+  }
+}
+
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -100,6 +112,12 @@ function buildScanStatus(input: {
   screenshotsSent: number;
   durationMs: number;
   error?: string;
+  errorFingerprint?: string;
+  incidentStartedAt?: string;
+  lastErrorNotifiedAt?: string;
+  consecutiveFailures?: number;
+  deliveredNotifications?: number;
+  pendingNotifications?: number;
 }): ScanStatus {
   return {
     status: input.status,
@@ -113,11 +131,34 @@ function buildScanStatus(input: {
     screenshotsSent: input.screenshotsSent,
     durationMs: input.durationMs,
     filterSummary: getFilterSummary(),
-    error: input.error
+    error: input.error,
+    errorFingerprint: input.errorFingerprint,
+    incidentStartedAt: input.incidentStartedAt,
+    lastErrorNotifiedAt: input.lastErrorNotifiedAt,
+    consecutiveFailures: input.consecutiveFailures,
+    deliveredNotifications: input.deliveredNotifications,
+    pendingNotifications: input.pendingNotifications
   };
 }
 
-async function writeFailureStatus(error: unknown, startedAt: string, failedAt: string): Promise<void> {
+async function writeFailureStatus(error: unknown, startedAt: string, failedAt: string): Promise<boolean> {
+  let previousStatus: ScanStatus | null = null;
+
+  try {
+    previousStatus = await retry("Cloudflare previous failure status read", readScanStatus, {
+      attempts: 1,
+      delayMs: 0
+    });
+  } catch (statusReadError) {
+    console.error("Failed to read previous scan status for incident suppression:", statusReadError);
+  }
+
+  const incident = decideFailureIncident(
+    previousStatus,
+    error,
+    failedAt,
+    env.errorReminderHours
+  );
   const status = buildScanStatus({
     status: "failed",
     scannedAt: failedAt,
@@ -127,7 +168,13 @@ async function writeFailureStatus(error: unknown, startedAt: string, failedAt: s
     notifiedChanges: 0,
     screenshotsSent: 0,
     durationMs: Date.parse(failedAt) - Date.parse(startedAt),
-    error: errorMessage(error)
+    error: errorMessage(error),
+    errorFingerprint: incident.errorFingerprint,
+    incidentStartedAt: incident.incidentStartedAt,
+    lastErrorNotifiedAt: incident.lastErrorNotifiedAt,
+    consecutiveFailures: incident.consecutiveFailures,
+    deliveredNotifications: 0,
+    pendingNotifications: previousStatus?.pendingNotifications ?? 0
   });
 
   try {
@@ -138,6 +185,8 @@ async function writeFailureStatus(error: unknown, startedAt: string, failedAt: s
   } catch (statusError) {
     console.error("Failed to write failure scan status:", statusError);
   }
+
+  return incident.shouldNotify;
 }
 
 async function run(): Promise<void> {
@@ -149,7 +198,7 @@ async function run(): Promise<void> {
   const gap = shouldSendGapWarning(previousSnapshot?.scannedAt, startedAt, env.scanGapWarnMinutes);
 
   if (previousSnapshot && gap.shouldSend) {
-    await sendTelegramWithRetry("Telegram scan gap warning", formatGapWarning({
+    await sendTelegramBestEffort("Telegram scan gap warning", formatGapWarning({
       previousScannedAt: previousSnapshot.scannedAt,
       currentScannedAt: startedAt,
       gapMinutes: gap.gapMinutes,
@@ -164,7 +213,8 @@ async function run(): Promise<void> {
 
   const currentItems = dedupeItems([...calendarItems, ...moodleItems]);
   const currentSnapshot: Snapshot = { scannedAt: startedAt, items: currentItems };
-  const shouldSendHealth = shouldSendHealthReport(previousStatus, startedAt, env.statusNotificationHours);
+  const shouldSendHealth = env.healthNotifications &&
+    shouldSendHealthReport(previousStatus, startedAt, env.statusNotificationHours);
 
   if (!previousSnapshot) {
     await retry("Cloudflare snapshot write", () => writeSnapshot(currentSnapshot));
@@ -177,6 +227,8 @@ async function run(): Promise<void> {
       rawMoodleItems: moodleItems.length,
       notifiedChanges: 0,
       screenshotsSent: 0,
+      deliveredNotifications: 0,
+      pendingNotifications: 0,
       durationMs: Date.now() - startedMs
     });
     await retry("Cloudflare scan status write", () => writeScanStatus(status));
@@ -234,12 +286,22 @@ async function run(): Promise<void> {
     rawMoodleItems: moodleItems.length,
     notifiedChanges: deliveryResult.delivered,
     screenshotsSent: deliveryResult.screenshotsSent,
+    deliveredNotifications: deliveryResult.delivered,
+    pendingNotifications: deliveryResult.outbox.entries.length,
     durationMs: Date.now() - startedMs
   });
   await retry("Cloudflare scan status write", () => writeScanStatus(status));
 
+  if (shouldSendRecovery(previousStatus)) {
+    await sendTelegramBestEffort("Telegram recovery notification", formatRecoveryReport({
+      scannedAt: startedAt,
+      consecutiveFailures: previousStatus?.consecutiveFailures ?? 1,
+      pendingNotifications: deliveryResult.outbox.entries.length
+    }));
+  }
+
   if (shouldSendHealth) {
-    await sendTelegramWithRetry("Telegram health report", formatHealthReport(status));
+    await sendTelegramBestEffort("Telegram health report", formatHealthReport(status));
   }
 
   console.log([
@@ -263,8 +325,12 @@ run().catch(async (error) => {
   console.error(error);
 
   try {
-    await writeFailureStatus(error, startedAt, failedAt);
-    await sendTelegramWithRetry("Telegram error notification", message);
+    const shouldNotify = await writeFailureStatus(error, startedAt, failedAt);
+    if (shouldNotify) {
+      await sendTelegramWithRetry("Telegram error notification", message);
+    } else {
+      console.warn("Repeated watcher error notification suppressed by incident cooldown.");
+    }
   } catch (telegramError) {
     console.error("Also failed to send Telegram error message:", telegramError);
   }

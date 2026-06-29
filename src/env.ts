@@ -98,5 +98,7 @@ export const env = {
   deploymentScreenshot: parseBoolean(optional("DEPLOYMENT_SCREENSHOT"), false),
 
   scanGapWarnMinutes: parseInteger(optional("SCAN_GAP_WARN_MINUTES"), 75),
-  statusNotificationHours: parseInteger(optional("STATUS_NOTIFICATION_HOURS"), 6)
+  healthNotifications: parseBoolean(optional("HEALTH_NOTIFICATIONS"), false),
+  statusNotificationHours: parseInteger(optional("STATUS_NOTIFICATION_HOURS"), 6),
+  errorReminderHours: parseInteger(optional("ERROR_REMINDER_HOURS"), 6)
 };

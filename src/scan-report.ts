@@ -87,8 +87,24 @@ export function formatHealthReport(status: ScanStatus): string {
     `Raw Moodle items: ${status.rawMoodleItems}`,
     `Raw calendar items: ${status.rawCalendarItems}`,
     `Changes notified: ${status.notifiedChanges}`,
+    `Pending alerts: ${status.pendingNotifications ?? 0}`,
     `Screenshots sent: ${status.screenshotsSent}`,
     `Duration: ${Math.round(status.durationMs / 1000)}s`,
     status.filterSummary
   ].filter(Boolean).join("\n");
+}
+
+export function formatRecoveryReport(input: {
+  scannedAt: string;
+  consecutiveFailures: number;
+  pendingNotifications: number;
+}): string {
+  return [
+    "[RECOVERED] LMS Watcher is working again",
+    "",
+    `Recovered: ${input.scannedAt}`,
+    `Failed scans: ${input.consecutiveFailures}`,
+    `Pending alerts: ${input.pendingNotifications}`,
+    "Monitoring continues normally.",
+  ].join("\n");
 }
