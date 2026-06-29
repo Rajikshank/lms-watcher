@@ -6,6 +6,7 @@ type DeliveryOptions = {
   maxScreenshotsPerRun: number;
   captureScreenshot: (item: LmsItem) => Promise<Buffer | null>;
   sendText: (message: string) => Promise<void>;
+  onTextSent?: () => Promise<void>;
   sendPhoto: (photo: Buffer, caption: string) => Promise<void>;
   logScreenshotFailure?: (context: ScreenshotFailureContext) => void;
 };
@@ -46,6 +47,7 @@ export async function deliverChangeNotification(
   const item = screenshotItem(change);
 
   await options.sendText(message);
+  await options.onTextSent?.();
 
   if (!options.screenshotsEnabled || screenshotsSent >= options.maxScreenshotsPerRun || !item) {
     return { screenshotSent: false };

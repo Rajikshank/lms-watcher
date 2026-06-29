@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 
-import type { Change } from "./types.js";
+import type { Change, Snapshot } from "./types.js";
 
 export type NotificationOutboxEntry = {
   id: string;
@@ -65,4 +65,72 @@ export function incrementOutboxAttempt(
       entry.id === id ? { ...entry, attempts: entry.attempts + 1 } : entry,
     ),
   };
+}
+
+type StageOptions = {
+  writeOutbox: (outbox: NotificationOutbox) => Promise<void>;
+  writeSnapshot: (snapshot: Snapshot) => Promise<void>;
+};
+
+export async function stageOutboxAndSnapshot(
+  outbox: NotificationOutbox,
+  changes: Change[],
+  snapshot: Snapshot,
+  options: StageOptions,
+): Promise<NotificationOutbox> {
+  const staged = mergeOutboxChanges(outbox, changes, snapshot.scannedAt);
+  await options.writeOutbox(staged);
+  await options.writeSnapshot(snapshot);
+  return staged;
+}
+
+type DeliveryResult = { screenshotSent: boolean };
+
+type DrainOptions = {
+  persist: (outbox: NotificationOutbox) => Promise<void>;
+  deliver: (
+    entry: NotificationOutboxEntry,
+    screenshotsSent: number,
+    acknowledgeText: () => Promise<void>,
+  ) => Promise<DeliveryResult>;
+};
+
+export async function drainNotificationOutbox(
+  outbox: NotificationOutbox,
+  options: DrainOptions,
+): Promise<{
+  outbox: NotificationOutbox;
+  delivered: number;
+  screenshotsSent: number;
+}> {
+  let current = outbox;
+  let delivered = 0;
+  let screenshotsSent = 0;
+
+  while (current.entries.length > 0) {
+    const entryId = current.entries[0]!.id;
+    current = incrementOutboxAttempt(current, entryId);
+    await options.persist(current);
+
+    const entry = current.entries.find((candidate) => candidate.id === entryId)!;
+    let acknowledged = false;
+    const delivery = await options.deliver(entry, screenshotsSent, async () => {
+      if (acknowledged) return;
+      const remaining = removeOutboxEntry(current, entryId);
+      await options.persist(remaining);
+      current = remaining;
+      acknowledged = true;
+      delivered += 1;
+    });
+
+    if (!acknowledged) {
+      throw new Error(`Notification delivery did not acknowledge text for outbox entry ${entryId}`);
+    }
+
+    if (delivery.screenshotSent) {
+      screenshotsSent += 1;
+    }
+  }
+
+  return { outbox: current, delivered, screenshotsSent };
 }

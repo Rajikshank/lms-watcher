@@ -2,13 +2,20 @@ import { env } from "./env.js";
 import { diffItems } from "./diff.js";
 import { formatErrorReport } from "./error-report.js";
 import { getFilterSummary } from "./filter.js";
+import {
+  drainNotificationOutbox,
+  emptyNotificationOutbox,
+  stageOutboxAndSnapshot,
+} from "./notification-outbox.js";
 import { deliverChangeNotification, type ScreenshotFailureContext } from "./notify/change-delivery.js";
 import { sendTelegramMessage, sendTelegramPhoto } from "./notify/telegram.js";
 import { retry } from "./retry.js";
 import {
   readScanStatus,
+  readNotificationOutbox,
   readSnapshot,
   writeScanStatus,
+  writeNotificationOutbox,
   writeSnapshot
 } from "./storage/cloudflare-kv.js";
 import {
@@ -138,6 +145,7 @@ async function run(): Promise<void> {
   const startedMs = Date.now();
   const previousSnapshot = await retry("Cloudflare snapshot read", readSnapshot);
   const previousStatus = await retry("Cloudflare scan status read", readScanStatus);
+  const previousOutbox = await retry("Cloudflare notification outbox read", readNotificationOutbox);
   const gap = shouldSendGapWarning(previousSnapshot?.scannedAt, startedAt, env.scanGapWarnMinutes);
 
   if (previousSnapshot && gap.shouldSend) {
@@ -183,11 +191,28 @@ async function run(): Promise<void> {
   }
 
   const changes = filterNoisyChanges(diffItems(previousSnapshot.items, currentItems));
-  let screenshotsSent = 0;
-
-  if (changes.length > 0) {
-    for (const change of changes.slice(0, 15)) {
-      const delivery = await deliverChangeNotification(change, screenshotsSent, {
+  const stagedOutbox = await stageOutboxAndSnapshot(
+    previousOutbox ?? emptyNotificationOutbox(),
+    changes,
+    currentSnapshot,
+    {
+      writeOutbox: (outbox) => retry(
+        "Cloudflare notification outbox write",
+        () => writeNotificationOutbox(outbox),
+      ),
+      writeSnapshot: (snapshot) => retry(
+        "Cloudflare snapshot write",
+        () => writeSnapshot(snapshot),
+      ),
+    },
+  );
+  const deliveryResult = await drainNotificationOutbox(stagedOutbox, {
+    persist: (outbox) => retry(
+      "Cloudflare notification outbox acknowledgement",
+      () => writeNotificationOutbox(outbox),
+    ),
+    deliver: (entry, screenshotsSent, acknowledgeText) =>
+      deliverChangeNotification(entry.change, screenshotsSent, {
         screenshotsEnabled: env.telegramScreenshots,
         maxScreenshotsPerRun: env.maxScreenshotsPerRun,
         captureScreenshot: (item) => retry("LMS item screenshot", () => captureLmsItemScreenshot(item), {
@@ -195,24 +220,11 @@ async function run(): Promise<void> {
           delayMs: 1_000
         }),
         sendText: (message) => retry("Telegram change notification", () => sendTelegramMessage(message)),
+        onTextSent: acknowledgeText,
         sendPhoto: (photo, caption) => retry("Telegram screenshot notification", () => sendTelegramPhoto(photo, caption)),
         logScreenshotFailure
-      });
-
-      if (delivery.screenshotSent) {
-        screenshotsSent += 1;
-      }
-    }
-
-    if (changes.length > 15) {
-      await sendTelegramWithRetry(
-        "Telegram overflow notification",
-        `[INFO] ${changes.length - 15} more LMS changes found. Check GitHub Actions logs.`
-      );
-    }
-  }
-
-  await retry("Cloudflare snapshot write", () => writeSnapshot(currentSnapshot));
+      }),
+  });
   const status = buildScanStatus({
     status: "success",
     scannedAt: startedAt,
@@ -220,8 +232,8 @@ async function run(): Promise<void> {
     currentItems,
     rawCalendarItems: calendarItems.length,
     rawMoodleItems: moodleItems.length,
-    notifiedChanges: changes.length,
-    screenshotsSent,
+    notifiedChanges: deliveryResult.delivered,
+    screenshotsSent: deliveryResult.screenshotsSent,
     durationMs: Date.now() - startedMs
   });
   await retry("Cloudflare scan status write", () => writeScanStatus(status));
@@ -234,8 +246,10 @@ async function run(): Promise<void> {
     `Scan complete. Items: ${currentItems.length}.`,
     `Raw Moodle items: ${moodleItems.length}.`,
     `Raw calendar items: ${calendarItems.length}.`,
-    `Notified changes: ${changes.length}.`,
-    `Screenshots sent: ${screenshotsSent}.`,
+    `Detected changes: ${changes.length}.`,
+    `Text alerts delivered: ${deliveryResult.delivered}.`,
+    `Pending alerts: ${deliveryResult.outbox.entries.length}.`,
+    `Screenshots sent: ${deliveryResult.screenshotsSent}.`,
     getFilterSummary()
   ].join(" "));
 }
