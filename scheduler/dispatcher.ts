@@ -12,6 +12,18 @@ export interface DispatchResult {
   requestId?: string;
 }
 
+export class GitHubDispatchError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly requestId: string | undefined,
+    public readonly retryable: boolean,
+  ) {
+    super(message);
+    this.name = "GitHubDispatchError";
+  }
+}
+
 const required = (value: string | undefined, name: string): string => {
   const trimmed = value?.trim();
   if (!trimmed) {
@@ -49,8 +61,11 @@ export async function dispatchWatcherWorkflow(
   if (!response.ok) {
     const body = (await response.text()).slice(0, 500);
     const requestLabel = requestId ? `, request ${requestId}` : "";
-    throw new Error(
+    throw new GitHubDispatchError(
       `GitHub workflow dispatch failed (${response.status})${requestLabel}: ${body || response.statusText}`,
+      response.status,
+      requestId,
+      response.status === 429 || response.status >= 500,
     );
   }
 
