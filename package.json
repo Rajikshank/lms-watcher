@@ -7,6 +7,8 @@
     "dev": "tsx src/main.ts",
     "watch": "tsx src/main.ts",
     "test": "tsx --test \"src/**/*.test.ts\"",
+    "setup:check": "node scripts/setup-check.mjs",
+    "setup:doctor": "pnpm setup:check && pnpm verify:config && pnpm verify:kv && pnpm verify:telegram && pnpm verify:calendar && pnpm verify:moodle",
     "verify:kv": "tsx src/verify-kv.ts",
     "verify:telegram": "tsx src/verify-telegram.ts",
     "verify:config": "tsx src/verify-config.ts",
