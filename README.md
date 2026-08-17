@@ -1,64 +1,89 @@
 <p align="center">
-  <img src="assets/lms-watcher-logo.svg" alt="LMS-Watcher" width="720">
+  <img src="assets/lms-watcher-terminal-logo.svg" alt="LMS-Watcher" width="700">
 </p>
 
 # LMS-Watcher
 
-LMS-Watcher is a Telegram alert system for the **SLTC Moodle LMS** at `https://lms.sltc.ac.lk`. It checks your selected SLTC modules and sends a Telegram message when it finds new or changed assignments, quizzes, resources, forums, or calendar deadlines.
+**LMS-Watcher** sends Telegram alerts for the **SLTC Moodle LMS** at `https://lms.sltc.ac.lk`.
 
-The watcher stays quiet when nothing changes. Text alerts are the reliable fallback, and screenshots are attached when the run can capture them safely.
+It checks your selected modules on a schedule and notifies you when it finds new or changed assignments, quizzes, resources, forums, or calendar deadlines. When nothing changes, it stays quiet.
 
-## Who This Is For
+Text alerts are the reliable default. Screenshots are attached when available, but a screenshot failure will never block the main Telegram alert.
 
-This project is for SLTC students who want automatic Telegram notifications from their own LMS account. Each student should use their own LMS login, Telegram bot, GitHub account, and Cloudflare account.
+## Highlights
 
-## Quick Start
+- Watches selected SLTC modules by course ID or course name.
+- Sends clear Telegram alerts for new and changed LMS items.
+- Supports assignments, quizzes, resources, forums, and calendar deadlines.
+- Runs automatically with GitHub Actions.
+- Stores scan history in Cloudflare KV so repeated alerts are avoided.
+- Retries failed Telegram text alerts so important updates are not silently lost.
+- Includes a guided setup wizard for beginners.
 
-Install the project dependencies:
+## Quick Setup
+
+Install dependencies:
 
 ```bash
 pnpm install
 ```
 
-Start the guided setup:
+Start the setup wizard:
 
 ```bash
 pnpm setup
 ```
 
-The setup wizard explains each step in simple language and helps you configure:
+The wizard guides you through Telegram, SLTC LMS login, Moodle calendar, watched modules, Cloudflare KV, and GitHub Actions secrets.
 
-- SLTC LMS login
-- Telegram bot and chat ID
-- Moodle calendar export link
-- Modules to watch
-- Cloudflare KV storage
-- GitHub Actions secrets
-
-To preview the wizard without saving anything:
+Preview the setup without saving anything:
 
 ```bash
 pnpm setup:dry-run
 ```
 
-To check whether your computer has the needed tools:
+Check local tools and common setup issues:
 
 ```bash
 pnpm setup:doctor
 ```
 
-## What You Need
+## Requirements
 
-- SLTC LMS username and password
+- SLTC LMS account
 - Telegram account
 - GitHub account
 - Cloudflare account
 - Node.js 22
 - pnpm
 
-Do not share your `.env`, bot token, GitHub token, Cloudflare token, or SLTC password.
+Keep your `.env`, LMS password, bot token, GitHub token, and Cloudflare token private.
 
-## Telegram Alert Example
+## Module Selection
+
+Use course IDs from SLTC LMS course URLs whenever possible.
+
+Example URL:
+
+```text
+https://lms.sltc.ac.lk/course/view.php?id=3549
+```
+
+Example `.env`:
+
+```env
+WATCHED_COURSE_IDS=3549,3555,3556
+```
+
+You can also use course names or course codes:
+
+```env
+WATCHED_COURSE_NAMES=Software Quality Assurance,Cloud Security
+```
+
+Leave both values empty only if you want to watch every visible SLTC LMS module.
+
+## Telegram Message Example
 
 ```text
 [NEW] New assignment
@@ -68,35 +93,11 @@ Open: https://lms.sltc.ac.lk/mod/assign/view.php?id=12345
 Category: assignment
 ```
 
-If screenshot capture is available, the watcher may also attach a logged-in screenshot. If screenshot capture fails, the text alert still sends.
+Screenshots may be attached for supported LMS pages. If screenshot capture fails, the text message still sends.
 
-## Choosing Modules
+## Verify Everything
 
-The best way is to use the course ID from your SLTC LMS course URL.
-
-Example course URL:
-
-```text
-https://lms.sltc.ac.lk/course/view.php?id=3549
-```
-
-Example `.env` value:
-
-```env
-WATCHED_COURSE_IDS=3549,3555,3556
-```
-
-You can also watch by course name or course code:
-
-```env
-WATCHED_COURSE_NAMES=Software Quality Assurance,Cloud Security
-```
-
-Leave both values empty only if you want to watch every visible SLTC LMS module.
-
-## Verify Your Setup
-
-Run these after setup:
+Run these commands after setup:
 
 ```bash
 pnpm setup:check
@@ -108,65 +109,55 @@ pnpm verify:moodle
 pnpm watch
 ```
 
-| Command | What it checks |
+| Command | Purpose |
 | --- | --- |
-| `pnpm setup:check` | Local setup and common mistakes |
-| `pnpm verify:config` | Required environment values and watched modules |
-| `pnpm verify:kv` | Cloudflare KV storage access |
-| `pnpm verify:telegram` | Telegram bot and chat connection |
-| `pnpm verify:calendar` | Moodle calendar export feed |
-| `pnpm verify:moodle` | SLTC LMS login and item crawling |
-| `pnpm watch` | One real watcher scan |
+| `pnpm setup:check` | Finds missing tools and common setup mistakes |
+| `pnpm verify:config` | Checks environment values and watched modules |
+| `pnpm verify:kv` | Confirms Cloudflare KV access |
+| `pnpm verify:telegram` | Confirms Telegram bot and chat access |
+| `pnpm verify:calendar` | Confirms Moodle calendar feed access |
+| `pnpm verify:moodle` | Confirms SLTC LMS login and item crawling |
+| `pnpm watch` | Runs one real watcher scan |
 
-The first successful run creates a baseline. After that, only new or changed LMS items are sent to Telegram.
+The first successful scan creates the baseline. New Telegram alerts are sent only for changes found after that baseline.
 
 ## How It Runs
 
-1. GitHub Actions runs the watcher on schedule.
+1. GitHub Actions starts the watcher on schedule.
 2. The watcher logs in to SLTC Moodle.
-3. It checks selected module pages and the Moodle calendar feed.
-4. It compares the latest scan with the previous scan stored in Cloudflare KV.
-5. New or changed items are sent to Telegram.
-6. Failed Telegram text alerts are stored as pending and retried later.
+3. It scans selected module pages and the Moodle calendar feed.
+4. It compares the latest scan with the previous scan in Cloudflare KV.
+5. It sends new or changed items to Telegram.
+6. Failed text alerts are saved and retried on later runs.
 
-A Cloudflare Worker scheduler can also trigger the GitHub workflow as a backup schedule.
+A Cloudflare Worker scheduler can also trigger the same GitHub workflow as a backup schedule.
 
-## Common Problems
+## Troubleshooting
 
-### I do not get notifications
-
-Usually this means nothing new was added after your first baseline scan.
+No Telegram alerts usually means there were no new LMS changes after the baseline scan.
 
 ```bash
 pnpm verify:status
 pnpm verify:moodle
 ```
 
-### The wrong modules are watched
-
-Check your module filters:
+If the wrong modules are watched, check your filter values:
 
 ```bash
 pnpm verify:config
 ```
 
-### Telegram messages do not send
-
-Make sure you pressed **Start** on your bot, the bot token is correct, and the chat ID is correct.
+If Telegram does not send, make sure you pressed **Start** on your bot and your bot token/chat ID are correct:
 
 ```bash
 pnpm verify:telegram
 ```
 
-### SLTC LMS login fails
-
-Use one of these values for `LMS_BASE_URL`:
+If SLTC login fails, use one of these base URLs:
 
 ```env
 LMS_BASE_URL=https://lms.sltc.ac.lk
 ```
-
-or:
 
 ```env
 LMS_BASE_URL=https://lms.sltc.ac.lk/login/index.php
@@ -176,15 +167,6 @@ Then run:
 
 ```bash
 pnpm verify:moodle
-```
-
-### Screenshots are missing
-
-Screenshots are best-effort. The important text notification still sends even when screenshots fail.
-
-```env
-TELEGRAM_SCREENSHOTS=true
-MAX_SCREENSHOTS_PER_RUN=10
 ```
 
 ## Useful Commands
@@ -201,8 +183,4 @@ pnpm scheduler:logs
 
 ## Security
 
-- Never commit `.env`.
-- Never post tokens or passwords in screenshots.
-- Rotate any token immediately if it is exposed.
-- Use your own accounts and credentials.
-- Review GitHub Actions secrets before sharing or publishing your fork.
+Never commit `.env`. Never share tokens or passwords in screenshots, chats, or public issues. If a secret is exposed, rotate it immediately before running the watcher again.

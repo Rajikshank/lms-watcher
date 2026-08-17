@@ -11,6 +11,7 @@
     "setup:dry-run": "tsx src/setup/cli.ts --dry-run --non-interactive",
     "setup:doctor": "tsx src/setup/cli.ts doctor",
     "setup:check": "node scripts/setup-check.mjs",
+    "logo:render": "node scripts/render-logo.mjs",
     "setup:verify": "pnpm setup:check && pnpm verify:config && pnpm verify:kv && pnpm verify:telegram && pnpm verify:calendar && pnpm verify:moodle",
     "verify:kv": "tsx src/verify-kv.ts",
     "verify:telegram": "tsx src/verify-telegram.ts",
