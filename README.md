@@ -1,8 +1,40 @@
-# LMS Watcher
+# LMS-Watcher
 
-LMS Watcher monitors a Moodle-based university LMS and sends Telegram alerts when new or changed course items are detected. It is designed for students who want a reliable, low-maintenance way to track assignments, quizzes, resources, forums, and calendar deadlines from selected modules.
+```text
+ __     _____  _____       _ _ _       _         _
+|  |   |     ||   __| ___ | | | | ___ | |_  ___ | |_  ___  ___
+|  |__ | | | ||__   ||___|| | | || .'||  _||  _||   || -_||  _|
+|_____||_|_|_||_____|     |_____||__,||_|  |___||_|_||___||_|
+```
+
+LMS-Watcher monitors a Moodle-based university LMS and sends Telegram alerts when new or changed course items are detected. It is designed for students who want a reliable, low-maintenance way to track assignments, quizzes, resources, forums, and calendar deadlines from selected modules.
 
 The project runs from GitHub Actions, stores scan state in Cloudflare KV, and can use a Cloudflare Worker scheduler to keep checks running even when one scheduler is delayed. Telegram text alerts are the primary notification path. Screenshots are attached when possible, but a screenshot failure will not block the text alert.
+
+## Easiest Setup
+
+The recommended setup path is the guided CLI wizard:
+
+```bash
+pnpm install
+pnpm setup
+```
+
+The wizard explains each step in simple English, opens helpful pages when possible, masks private tokens, saves `.env`, and tells you which verification command to run next.
+
+For a safe preview that does not write files, upload secrets, call GitHub, call Cloudflare, or send Telegram messages:
+
+```bash
+pnpm setup:dry-run
+```
+
+To check local setup tools:
+
+```bash
+pnpm setup:doctor
+```
+
+Manual setup is still documented below for advanced users or for fixing a specific failed step.
 
 ## Features
 
@@ -53,7 +85,7 @@ pnpm exec playwright install chromium
 
 On GitHub Actions, Chromium is installed automatically by the workflow.
 
-## Quick Setup Checklist
+## Manual Setup Checklist
 
 Use this checklist when setting up a new copy:
 

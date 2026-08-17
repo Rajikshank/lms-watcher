@@ -7,8 +7,11 @@
     "dev": "tsx src/main.ts",
     "watch": "tsx src/main.ts",
     "test": "tsx --test \"src/**/*.test.ts\"",
+    "setup": "tsx src/setup/cli.ts",
+    "setup:dry-run": "tsx src/setup/cli.ts --dry-run --non-interactive",
+    "setup:doctor": "tsx src/setup/cli.ts doctor",
     "setup:check": "node scripts/setup-check.mjs",
-    "setup:doctor": "pnpm setup:check && pnpm verify:config && pnpm verify:kv && pnpm verify:telegram && pnpm verify:calendar && pnpm verify:moodle",
+    "setup:verify": "pnpm setup:check && pnpm verify:config && pnpm verify:kv && pnpm verify:telegram && pnpm verify:calendar && pnpm verify:moodle",
     "verify:kv": "tsx src/verify-kv.ts",
     "verify:telegram": "tsx src/verify-telegram.ts",
     "verify:config": "tsx src/verify-config.ts",
@@ -21,8 +24,15 @@
     "scheduler:logs": "wrangler tail lms-watcher-scheduler"
   },
   "dependencies": {
+    "@inquirer/prompts": "^8.5.2",
+    "boxen": "^8.0.1",
     "dotenv": "latest",
+    "figlet": "^1.11.4",
+    "gradient-string": "^3.0.0",
     "ical.js": "latest",
+    "open": "^11.0.1",
+    "ora": "^9.4.1",
+    "picocolors": "^1.1.1",
     "playwright": "latest"
   },
   "devDependencies": {
