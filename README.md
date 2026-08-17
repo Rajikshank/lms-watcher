@@ -1,47 +1,64 @@
 <p align="center">
-  <img src="assets/lms-watcher-logo.svg" alt="LMS-Watcher" width="760">
+  <img src="assets/lms-watcher-logo.svg" alt="LMS-Watcher" width="720">
 </p>
 
 # LMS-Watcher
 
-LMS-Watcher is a Telegram notifier for the **SLTC Moodle LMS**. It checks your selected SLTC modules and alerts you when it finds new or changed assignments, quizzes, resources, forums, or calendar deadlines.
+LMS-Watcher is a Telegram alert system for the **SLTC Moodle LMS** at `https://lms.sltc.ac.lk`. It checks your selected SLTC modules and sends a Telegram message when it finds new or changed assignments, quizzes, resources, forums, or calendar deadlines.
 
-It is quiet when nothing changes. Text alerts are the main reliable notification. Screenshots are attached when possible, but screenshot problems never stop the text alert.
+The watcher stays quiet when nothing changes. Text alerts are the reliable fallback, and screenshots are attached when the run can capture them safely.
 
-## Fast Setup
+## Who This Is For
 
-You need:
+This project is for SLTC students who want automatic Telegram notifications from their own LMS account. Each student should use their own LMS login, Telegram bot, GitHub account, and Cloudflare account.
 
-- SLTC LMS username and password
-- Telegram account
-- GitHub account
-- Cloudflare account
-- Node.js 22 and pnpm
+## Quick Start
 
-Then run:
+Install the project dependencies:
 
 ```bash
 pnpm install
+```
+
+Start the guided setup:
+
+```bash
 pnpm setup
 ```
 
-The setup wizard explains each step and helps you connect Telegram, SLTC LMS, Cloudflare storage, GitHub Actions secrets, and watched modules.
+The setup wizard explains each step in simple language and helps you configure:
 
-Want to preview first without changing anything?
+- SLTC LMS login
+- Telegram bot and chat ID
+- Moodle calendar export link
+- Modules to watch
+- Cloudflare KV storage
+- GitHub Actions secrets
+
+To preview the wizard without saving anything:
 
 ```bash
 pnpm setup:dry-run
 ```
 
-Need to check missing tools?
+To check whether your computer has the needed tools:
 
 ```bash
 pnpm setup:doctor
 ```
 
-## What You Get In Telegram
+## What You Need
 
-Example:
+- SLTC LMS username and password
+- Telegram account
+- GitHub account
+- Cloudflare account
+- Node.js 22
+- pnpm
+
+Do not share your `.env`, bot token, GitHub token, Cloudflare token, or SLTC password.
+
+## Telegram Alert Example
 
 ```text
 [NEW] New assignment
@@ -51,49 +68,35 @@ Open: https://lms.sltc.ac.lk/mod/assign/view.php?id=12345
 Category: assignment
 ```
 
-The watcher can also attach a logged-in screenshot when possible.
+If screenshot capture is available, the watcher may also attach a logged-in screenshot. If screenshot capture fails, the text alert still sends.
 
-## What The Setup Wizard Does
+## Choosing Modules
 
-`pnpm setup` guides you through:
+The best way is to use the course ID from your SLTC LMS course URL.
 
-1. Finding your GitHub repository.
-2. Creating a Telegram bot with BotFather.
-3. Connecting your Telegram chat.
-4. Adding your SLTC LMS login.
-5. Adding your Moodle calendar export URL.
-6. Choosing SLTC modules by course ID or course name.
-7. Connecting Cloudflare KV storage.
-8. Uploading GitHub Actions secrets if GitHub CLI is available.
-9. Showing the final verification commands.
-
-Your local setup progress is saved in `.lms-watcher-setup.json`. Your private `.env` file is ignored by Git.
-
-## Best Way To Choose Modules
-
-Use the SLTC Moodle course ID from a course URL:
+Example course URL:
 
 ```text
 https://lms.sltc.ac.lk/course/view.php?id=3549
 ```
 
-For multiple modules:
+Example `.env` value:
 
 ```env
 WATCHED_COURSE_IDS=3549,3555,3556
 ```
 
-You can also use course names/codes:
+You can also watch by course name or course code:
 
 ```env
 WATCHED_COURSE_NAMES=Software Quality Assurance,Cloud Security
 ```
 
-Leave both empty only if you want to watch every visible SLTC LMS module.
+Leave both values empty only if you want to watch every visible SLTC LMS module.
 
-## Verify After Setup
+## Verify Your Setup
 
-Run these commands after the wizard:
+Run these after setup:
 
 ```bash
 pnpm setup:check
@@ -105,69 +108,51 @@ pnpm verify:moodle
 pnpm watch
 ```
 
-What they mean:
-
-| Command | Checks |
+| Command | What it checks |
 | --- | --- |
 | `pnpm setup:check` | Local setup and common mistakes |
-| `pnpm verify:config` | Environment values and watched modules |
-| `pnpm verify:kv` | Cloudflare KV storage |
-| `pnpm verify:telegram` | Telegram bot and chat |
-| `pnpm verify:calendar` | Moodle calendar export |
-| `pnpm verify:moodle` | SLTC LMS login and item crawl |
+| `pnpm verify:config` | Required environment values and watched modules |
+| `pnpm verify:kv` | Cloudflare KV storage access |
+| `pnpm verify:telegram` | Telegram bot and chat connection |
+| `pnpm verify:calendar` | Moodle calendar export feed |
+| `pnpm verify:moodle` | SLTC LMS login and item crawling |
 | `pnpm watch` | One real watcher scan |
 
-The first successful scan may create a baseline. After that, only new or changed LMS items are notified.
+The first successful run creates a baseline. After that, only new or changed LMS items are sent to Telegram.
 
-## How It Works
+## How It Runs
 
-1. GitHub Actions runs the watcher on a schedule.
+1. GitHub Actions runs the watcher on schedule.
 2. The watcher logs in to SLTC Moodle.
 3. It checks selected module pages and the Moodle calendar feed.
-4. It compares the new scan with the previous scan stored in Cloudflare KV.
+4. It compares the latest scan with the previous scan stored in Cloudflare KV.
 5. New or changed items are sent to Telegram.
-6. Failed Telegram text alerts stay pending and retry later.
+6. Failed Telegram text alerts are stored as pending and retried later.
 
-A Cloudflare Worker scheduler can also trigger the same GitHub workflow as a backup schedule.
+A Cloudflare Worker scheduler can also trigger the GitHub workflow as a backup schedule.
 
 ## Common Problems
 
-### No notifications
+### I do not get notifications
 
-Usually this means nothing new was added after your baseline scan.
-
-Check:
+Usually this means nothing new was added after your first baseline scan.
 
 ```bash
 pnpm verify:status
 pnpm verify:moodle
 ```
 
-### Wrong modules
+### The wrong modules are watched
 
-Check your filters:
+Check your module filters:
 
 ```bash
 pnpm verify:config
 ```
 
-To test all visible modules, temporarily leave both empty:
+### Telegram messages do not send
 
-```env
-WATCHED_COURSE_IDS=
-WATCHED_COURSE_NAMES=
-```
-
-### Telegram does not send
-
-Make sure:
-
-- Bot token is correct.
-- You pressed Start on the bot.
-- Chat ID is correct.
-- Bot is not blocked.
-
-Run:
+Make sure you pressed **Start** on your bot, the bot token is correct, and the chat ID is correct.
 
 ```bash
 pnpm verify:telegram
@@ -175,13 +160,19 @@ pnpm verify:telegram
 
 ### SLTC LMS login fails
 
-Make sure:
+Use one of these values for `LMS_BASE_URL`:
 
-- `LMS_BASE_URL` is `https://lms.sltc.ac.lk/login/index.php` or `https://lms.sltc.ac.lk`.
-- Username/password are correct.
-- You can log in from a normal browser.
+```env
+LMS_BASE_URL=https://lms.sltc.ac.lk
+```
 
-Run:
+or:
+
+```env
+LMS_BASE_URL=https://lms.sltc.ac.lk/login/index.php
+```
+
+Then run:
 
 ```bash
 pnpm verify:moodle
@@ -189,20 +180,12 @@ pnpm verify:moodle
 
 ### Screenshots are missing
 
-Screenshots are best-effort. Text alerts are still reliable.
+Screenshots are best-effort. The important text notification still sends even when screenshots fail.
 
 ```env
 TELEGRAM_SCREENSHOTS=true
 MAX_SCREENSHOTS_PER_RUN=10
 ```
-
-## Safety Notes
-
-- Never commit `.env`.
-- Never share LMS passwords or tokens.
-- Use your own Telegram bot and Cloudflare account.
-- Rotate tokens immediately if exposed.
-- Do not run random remote install scripts with your SLTC LMS credentials.
 
 ## Useful Commands
 
@@ -215,3 +198,11 @@ pnpm verify:status
 pnpm scheduler:check
 pnpm scheduler:logs
 ```
+
+## Security
+
+- Never commit `.env`.
+- Never post tokens or passwords in screenshots.
+- Rotate any token immediately if it is exposed.
+- Use your own accounts and credentials.
+- Review GitHub Actions secrets before sharing or publishing your fork.

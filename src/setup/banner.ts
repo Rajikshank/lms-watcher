@@ -10,20 +10,12 @@ export type BannerOptions = {
 const TITLE = "LMS-Watcher";
 const TAGLINE = "SLTC LMS alerts for assignments, quizzes, resources, and deadlines.";
 
-const BLOCK_LOGO = String.raw`
-██      ███    ███  ██████        ██     ██  █████  ████████  ██████ ██   ██ ███████ ██████
-██      ████  ████ ██             ██     ██ ██   ██    ██    ██      ██   ██ ██      ██   ██
-██      ██ ████ ██  █████  █████  ██  █  ██ ███████    ██    ██      ███████ █████   ██████
-██      ██  ██  ██      ██        ██ ███ ██ ██   ██    ██    ██      ██   ██ ██      ██   ██
-███████ ██      ██ ██████          ███ ███  ██   ██    ██     ██████ ██   ██ ███████ ██   ██
-`.trim();
-
-const COMPACT_LOGO = String.raw`
-██      ███    ███  ██████
-██      ████  ████ ██
-██      ██ ████ ██  █████
-██      ██  ██  ██      ██
-███████ ██      ██ ██████
+const LOGO = String.raw`
+##      ###   ###  ######
+##      #### #### ##
+##      ## ### ##  #####
+##      ##  #  ##      ##
+####### ##     ## ######
 `.trim();
 
 function terminalSupportsColor(color?: boolean): boolean {
@@ -33,22 +25,22 @@ function terminalSupportsColor(color?: boolean): boolean {
 }
 
 export function renderBanner(options: BannerOptions = {}): string {
-  const columns = options.columns ?? process.stdout.columns ?? 100;
+  const columns = options.columns ?? process.stdout.columns ?? 90;
   const supportsColor = terminalSupportsColor(options.color);
-  const title = columns < 104 ? COMPACT_LOGO : BLOCK_LOGO;
-  const label = columns < 104 ? TITLE : "";
+  const borderColor = supportsColor ? "blue" : undefined;
 
-  const coloredTitle = supportsColor
-    ? gradient(["#67e8f9", "#818cf8", "#22d3ee"]).multiline(title)
-    : title;
+  const coloredLogo = supportsColor
+    ? gradient(["#00AEEF", "#17417E"]).multiline(LOGO)
+    : LOGO;
 
+  const title = supportsColor ? pc.bold(pc.blue(TITLE)) : TITLE;
   const subtitle = supportsColor ? pc.cyan(TAGLINE) : TAGLINE;
-  const content = [coloredTitle, label, subtitle].filter(Boolean).join("\n\n");
+  const content = [coloredLogo, title, subtitle].join("\n\n");
 
   return boxen(content, {
     padding: { top: 1, bottom: 1, left: 2, right: 2 },
     margin: { top: 1, bottom: 1 },
-    borderStyle: "round",
-    borderColor: supportsColor ? "cyan" : undefined
+    borderStyle: columns < 70 ? "single" : "round",
+    borderColor
   });
 }
