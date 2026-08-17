@@ -1,5 +1,4 @@
 import boxen from "boxen";
-import figlet from "figlet";
 import gradient from "gradient-string";
 import pc from "picocolors";
 
@@ -9,7 +8,23 @@ export type BannerOptions = {
 };
 
 const TITLE = "LMS-Watcher";
-const TAGLINE = "Assignment, quiz, resource, and course update alerts.";
+const TAGLINE = "SLTC LMS alerts for assignments, quizzes, resources, and deadlines.";
+
+const BLOCK_LOGO = String.raw`
+██      ███    ███  ██████        ██     ██  █████  ████████  ██████ ██   ██ ███████ ██████
+██      ████  ████ ██             ██     ██ ██   ██    ██    ██      ██   ██ ██      ██   ██
+██      ██ ████ ██  █████  █████  ██  █  ██ ███████    ██    ██      ███████ █████   ██████
+██      ██  ██  ██      ██        ██ ███ ██ ██   ██    ██    ██      ██   ██ ██      ██   ██
+███████ ██      ██ ██████          ███ ███  ██   ██    ██     ██████ ██   ██ ███████ ██   ██
+`.trim();
+
+const COMPACT_LOGO = String.raw`
+██      ███    ███  ██████
+██      ████  ████ ██
+██      ██ ████ ██  █████
+██      ██  ██  ██      ██
+███████ ██      ██ ██████
+`.trim();
 
 function terminalSupportsColor(color?: boolean): boolean {
   if (color === false) return false;
@@ -18,31 +33,22 @@ function terminalSupportsColor(color?: boolean): boolean {
 }
 
 export function renderBanner(options: BannerOptions = {}): string {
-  const columns = options.columns ?? process.stdout.columns ?? 80;
+  const columns = options.columns ?? process.stdout.columns ?? 100;
   const supportsColor = terminalSupportsColor(options.color);
-
-  const title =
-    columns < 64
-      ? TITLE
-      : figlet.textSync(TITLE, {
-          font: "Rectangles",
-          horizontalLayout: "fitted",
-          verticalLayout: "default",
-          width: Math.max(columns - 6, 40),
-          whitespaceBreak: true
-        });
+  const title = columns < 104 ? COMPACT_LOGO : BLOCK_LOGO;
+  const label = columns < 104 ? TITLE : "";
 
   const coloredTitle = supportsColor
-    ? gradient(["#38bdf8", "#818cf8", "#22d3ee"]).multiline(title)
+    ? gradient(["#67e8f9", "#818cf8", "#22d3ee"]).multiline(title)
     : title;
 
   const subtitle = supportsColor ? pc.cyan(TAGLINE) : TAGLINE;
+  const content = [coloredTitle, label, subtitle].filter(Boolean).join("\n\n");
 
-  return boxen(`${coloredTitle}\n\n${subtitle}`, {
+  return boxen(content, {
     padding: { top: 1, bottom: 1, left: 2, right: 2 },
     margin: { top: 1, bottom: 1 },
     borderStyle: "round",
     borderColor: supportsColor ? "cyan" : undefined
   });
 }
-
