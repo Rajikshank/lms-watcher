@@ -8,9 +8,6 @@
   "observability": {
     "enabled": true,
   },
-  "triggers": {
-    "crons": ["*/15 * * * *"],
-  },
   "vars": {
     "GITHUB_OWNER": "Rajikshank",
     "GITHUB_REPO": "lms-watcher",
